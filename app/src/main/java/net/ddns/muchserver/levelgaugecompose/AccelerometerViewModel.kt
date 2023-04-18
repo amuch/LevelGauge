@@ -6,18 +6,15 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 
 class AccelerometerViewModel : ViewModel() {
-    var accelX by mutableStateOf("")
-    var accelY by mutableStateOf("")
-    var accelZ by mutableStateOf("")
+    var accelX by mutableStateOf(0.0f)
+    var accelY by mutableStateOf(0.0f)
+    var accelZ by mutableStateOf(0.0f)
 
     fun setAcceleration(accel: FloatArray?) {
         try {
-            val x = "%.3f".format(accel!![0])
-            accelX = "Accel X: $x"
-            val y = "%.3f".format(accel[1])
-            accelY = "Accel Y: $y"
-            val z = "%.3f".format(accel[2])
-            accelZ = "Accel Z: $z"
+            accelX = accel!![0]
+            accelY = accel[1]
+            accelZ = accel[2]
         }
         catch(e: Exception) {
             "Invalid"
