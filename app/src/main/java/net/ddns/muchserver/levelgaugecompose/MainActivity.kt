@@ -1,6 +1,5 @@
 package net.ddns.muchserver.levelgaugecompose
 
-import android.graphics.Typeface
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -9,27 +8,39 @@ import android.os.Bundle
 import android.view.Window
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Canvas
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.ddns.muchserver.levelgaugecompose.composables.DialogSettings
+import net.ddns.muchserver.levelgaugecompose.composables.LevelGauge
+import net.ddns.muchserver.levelgaugecompose.repository.THEME_LIGHT
 import net.ddns.muchserver.levelgaugecompose.ui.theme.LevelGaugeComposeTheme
+import net.ddns.muchserver.levelgaugecompose.viewmodels.PreferenceViewModel
 
-const val ACCELERATION_DUE_TO_GRAVITY = 9.81
 const val DELAY_UPDATE = 50L
 
 class MainActivity : ComponentActivity(), SensorEventListener {
@@ -37,26 +48,61 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var sensorManager: SensorManager? = null
     private var accelerometer: Sensor? = null
     private lateinit var accelerometerViewModel: AccelerometerViewModel
+    private lateinit var preferenceViewModel: PreferenceViewModel
     private var shouldUpdate = false
     private var accelerometerIsRegistered = false
+    private lateinit var theme: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        theme = THEME_LIGHT
         requestWindowFeature(Window.FEATURE_NO_TITLE)
         sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         accelerometer = sensorManager!!.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
         accelerometerViewModel = AccelerometerViewModel()
+        preferenceViewModel = ViewModelProvider(this).get(PreferenceViewModel::class.java)
+        preferenceViewModel.readFromDataStore.observe(this) { colors ->
+            theme = colors
+        }
+
+        val activity = this
 
         setContent {
-            LevelGaugeComposeTheme {
-                // A surface container using the 'background' color from the theme
+            var darkTheme by remember { mutableStateOf(false) }
+            val colorButtonBackground = if(theme == THEME_LIGHT) Color.Red else Color.Blue
+            val colorButtonText = if(theme == THEME_LIGHT) Color.White else Color.Black
+            LevelGaugeComposeTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    LevelGauge(accelerometerViewModel)
+                    val showDialogSettings = remember { mutableStateOf(false) }
+                    Box {
+                        LevelGauge(accelerometerViewModel, preferenceViewModel, activity)
+                        Button(
+                            onClick = {
+                                showDialogSettings.value = true
+                                      println("${showDialogSettings.value}")},
+                            colors = ButtonDefaults.textButtonColors(
+                                backgroundColor = colorButtonBackground,
+                                contentColor = colorButtonText
+                            ),
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(10.dp)
+//                                .border(5.dp, Color.White, CircleShape)
+                        ) {
+                            Text(text = "Settings")
+                        }
+                    }
+
+                    DialogSettings(
+                        showDialog = showDialogSettings,
+                        preferenceViewModel = preferenceViewModel,
+                        activity = activity
+                    ) { }
+
                 }
             }
         }
@@ -98,108 +144,73 @@ class MainActivity : ComponentActivity(), SensorEventListener {
         }
     }
 }
-
+/*
 @Composable
-fun LevelGauge(
-    viewModel: AccelerometerViewModel
+fun ThemeSwitcher(
+    darkTheme: Boolean = false,
+    size: Dp = 150.dp,
+    iconSize: Dp = size / 3,
+    padding: Dp = 10.dp,
+    borderWidth: Dp = 1.dp,
+    parentShape: Shape = CircleShape,
+    toggleShape: Shape = CircleShape,
+    animationSpec: AnimationSpec<Dp> = tween(durationMillis = 300),
+    onClick: () -> Unit
 ) {
-    val accelX = "%.3f".format(viewModel.accelX)
-    val verticalAcceleration = "%.3f".format(-1 * viewModel.accelX)
-    val accelY = "%.3f".format(viewModel.accelY)
-    val horizontalAcceleration = "%.3f".format(viewModel.accelY)
-    val accelZ = "%.3f".format(viewModel.accelZ)
+    val offset by animateDpAsState(
+        targetValue = if(darkTheme) 0.dp else size,
+        animationSpec = animationSpec
+    )
 
-    val configuration = LocalConfiguration.current
-    val screenWidth = configuration.screenWidthDp
+    Box(modifier = Modifier
+        .width(size * 2)
+        .height(size)
+        .clip(shape = parentShape)
+        .clickable { onClick() }
+        .background(MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Box(modifier = Modifier
+            .size(size)
+            .offset(x = offset)
+            .padding(all = padding)
+            .clip(shape = parentShape)
+            .background(MaterialTheme.colorScheme.primary)
+        ) {}
+        Row(
+            modifier = Modifier
+                .border(
+                    border = BorderStroke(
+                        width = borderWidth,
+                        color = MaterialTheme.colorScheme.primary
+                    ) ,
+                    shape = parentShape
+                )
+        ) {
+            Box(
+                modifier = Modifier.size(size),
+                contentAlignment = Alignment.Center
 
-    val screenHeight = configuration.screenHeightDp
-
-    val sideShorter = kotlin.math.min(screenWidth, screenHeight)
-    val paddingEnd = sideShorter / 12
-    val radius = sideShorter / 10
-
-    val textSizeLocal = (sideShorter / 12).toFloat()
-
-    val drawWidth = screenWidth.dp
-    val drawHeight = screenHeight.dp
-    val offsetX = (drawWidth / 2) + (viewModel.accelY / ACCELERATION_DUE_TO_GRAVITY) * (3 * drawWidth / 7)
-    val offsetY = (drawHeight / 2) + (viewModel.accelX / ACCELERATION_DUE_TO_GRAVITY) * (3 * drawHeight / 7)
-
-    val textPaint = Paint().asFrameworkPaint().apply{
-        isAntiAlias = true
-        color = android.graphics.Color.BLACK
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
-        textSize = textSizeLocal
-    }
-    val paint = Paint().apply {
-        color = Color.Yellow
-    }
-    Canvas(
-        modifier = Modifier.fillMaxSize(),
-        onDraw = {
-            drawIntoCanvas {
-                it.nativeCanvas.drawText(
-                    "X: $horizontalAcceleration",
-                    (screenWidth - paddingEnd).toFloat(),
-                    (screenWidth / 15).toFloat(),
-                    textPaint
-                )
-                it.nativeCanvas.drawText(
-                    "Y: $verticalAcceleration",
-                    (screenWidth - paddingEnd).toFloat(),
-                    (2 * screenWidth / 15).toFloat(),
-                    textPaint
-                )
-                it.nativeCanvas.drawText(
-                    "Z: $accelZ",
-                    (screenWidth - paddingEnd).toFloat(),
-                    (screenWidth / 5).toFloat(),
-                    textPaint
-                )
-//                it.nativeCanvas.drawText(
-//                    "Width: $screenWidth, Height: $screenHeight",
-//                    paddingEnd.toFloat(),
-//                    (screenWidth / 15).toFloat(),
-//                    textPaint
-//                )
-                paint.apply {
-                    color = Color.Black
-                }
-                it.drawLine(
-                    Offset((drawWidth / 2).toPx(), (drawHeight / 8).toPx()),
-                    Offset((drawWidth / 2).toPx(), (7 * drawHeight / 8).toPx()),
-                    paint
-                )
-                it.drawLine(
-                    Offset((drawWidth / 8).toPx(), (drawHeight / 2).toPx()),
-                    Offset((7 * drawWidth / 8).toPx(), (drawHeight / 2).toPx()),
-                    paint
-                )
-//                it.drawCircle(
-//                    Offset(offsetX.toPx(), offsetY.toPx()),
-//                    radius.toFloat(),
-//                    paint
-//                )
-                paint.apply {
-                    color = Color(0x990000FF)
-                }
-                it.drawCircle(
-                    Offset((drawWidth / 2).toPx(), offsetY.toPx()),
-                    radius.toFloat(),
-                    paint
-                )
-                paint.apply {
-                    color = Color(0x5500FF00)
-                }
-                it.drawCircle(
-                    Offset(offsetX.toPx(), (drawHeight / 2).toPx()),
-                    radius.toFloat(),
-                    paint
+            ) {
+                Icon (
+                    modifier = Modifier.size(iconSize),
+                    imageVector = Icons.Default.NightLight,
+                    contentDescription = "Theme Icon",
+                    tint =  if(darkTheme)
+                                MaterialTheme.colorScheme.secondaryContainer
+                            else
+                                MaterialTheme.colorScheme.primary
                 )
             }
+            Box(
+                modifier = Modifier.size(size),
+                contentAlignment = Alignment.Center
+
+            ){}
         }
-    )
+    }
 }
+
+**/
 
 @Preview(showBackground = true)
 @Composable
