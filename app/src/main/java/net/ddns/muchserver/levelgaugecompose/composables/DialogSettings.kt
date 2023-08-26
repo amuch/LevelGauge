@@ -36,6 +36,10 @@ fun DialogSettings(
         theme = colors
     }
 
+    val colorBackground = if(theme == THEME_LIGHT) Color.White else Color.Black
+    val colorText = if(theme == THEME_LIGHT) Color.Black else Color.White
+    val colorButton = if(theme == THEME_LIGHT) Color.Red else Color.Blue
+
     var sliderValue by remember { mutableStateOf(HEX_MINIMUM) }
     preferenceViewModel.readHexFromDataStore.observe(activity) { hex ->
         sliderValue = hex
@@ -55,8 +59,8 @@ fun DialogSettings(
                         .fillMaxSize()
                         .padding(20.dp)
                         .clip(RoundedCornerShape(15.dp))
-                        .background(color = Color.LightGray)
-                        .border(2.dp, Color.White, RoundedCornerShape(15.dp))
+                        .background(color = colorBackground)
+                        .border(2.dp, colorText, RoundedCornerShape(15.dp))
 
                 ) {
                     Button(
@@ -64,8 +68,8 @@ fun DialogSettings(
                             showDialog.value = false
                         },
                         colors = ButtonDefaults.textButtonColors(
-                            backgroundColor = Color.Red,
-                            contentColor = Color.White
+                            backgroundColor = colorButton,
+                            contentColor = colorText
                         ),
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
@@ -87,12 +91,17 @@ fun DialogSettings(
                             },
                             valueRange = 0f..1.0f,
                             modifier = Modifier
-                                .fillMaxWidth(0.9f)
+                                .fillMaxWidth(0.9f),
+                            colors = SliderDefaults.colors(
+                                activeTrackColor = colorButton,
+                                thumbColor = colorButton
+                            )
                         )
                         Text(
                             text = Math.round(255 * sliderValue).toString(),
                             modifier = Modifier
-                                .align(Alignment.CenterHorizontally)
+                                .align(Alignment.CenterHorizontally),
+                            color = colorText
                         )
                     }
                     Button(
@@ -105,8 +114,8 @@ fun DialogSettings(
                             }
                         },
                         colors = ButtonDefaults.textButtonColors(
-                            backgroundColor = Color.Red,
-                            contentColor = Color.White
+                            backgroundColor = colorButton,
+                            contentColor = colorText
                         ),
                         modifier = Modifier
                             .align(Alignment.TopStart)
