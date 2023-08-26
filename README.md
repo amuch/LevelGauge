@@ -1,3 +1,3 @@
 # LevelGauge
 
-![image light] (/LevelGauge/assets/images/levelGaugeLight.png)
+![image light] (/LevelGauge/assets/levelGaugeLight.png)
