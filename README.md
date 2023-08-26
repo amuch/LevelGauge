@@ -1,4 +1,4 @@
+import imageLight from './assets/images/levelGaugeLight.png'
 # LevelGauge
 
-
-![image] (/assets/images/levelGaugeLight.png)
+<img src={imageLight} />
